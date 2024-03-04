@@ -18,29 +18,29 @@ public class Symbols {
   private final Optional<Result> doubleSymbols;
 
   private Symbols(SymbolsBuilder builder) {
-    jackpot = findCombination(IS_JACKPOT, builder).map(Result::jackopt);
-    doubleSymbols = findCombination(HAS_DOUBLE_SYMBOLS, builder).map(
-      Result::doubleSymbol
-    );
+    Roll roll = buildRoll(builder);
+
+    jackpot = roll.jackpot();
+    doubleSymbols = roll.doubleS();
   }
 
-  private Optional<Symbol> findCombination(
-    Predicate<Entry<Symbol, Long>> predicate,
-    SymbolsBuilder builder
-  ) {
-    return symbolsGroupByNumber(builder)
-      .entrySet()
-      .stream()
-      .filter(predicate)
-      .findFirst()
-      .map(Entry::getKey);
+  private Roll buildRoll(SymbolsBuilder builder) {
+    return groupSymbolByNumber(builder).entrySet()
+    .stream()
+    .collect(Collectors.teeing(
+      Collectors.filtering(IS_JACKPOT, Collectors.reducing((a, __) -> a)),
+      Collectors.filtering(HAS_DOUBLE_SYMBOLS, Collectors.reducing((a, __) -> a)),
+      (jackpotEntry, doubleEntry) -> new Roll(jackpotEntry.map(r -> Result.jackopt(r.getKey())), doubleEntry.map(r -> Result.doubleSymbol(r.getKey()))))
+      );
   }
 
-  private Map<Symbol, Long> symbolsGroupByNumber(SymbolsBuilder builder) {
+  private Map<Symbol, Long> groupSymbolByNumber(SymbolsBuilder builder) {
     return Stream.of(builder.first, builder.second, builder.third).collect(
       Collectors.groupingBy(Function.identity(), Collectors.counting())
-    );
+      );
   }
+
+  private record Roll(Optional<Result> jackpot, Optional<Result> doubleS) {}
 
   public Result result() {
     return jackpot.or(() -> doubleSymbols).orElse(Result.fail());
