@@ -5,48 +5,59 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Symbols {
 
   private static final Predicate<Entry<Symbol, Long>> IS_JACKPOT = isJackpot();
-  private static final Predicate<Entry<Symbol, Long>> HAS_DOUBLE_SYMBOLS =
-    hasDoubleSymbol();
+  private static final Predicate<Entry<Symbol, Long>> HAS_PAIR = hasPair();
 
-  private final Optional<Result> jackpot;
-  private final Optional<Result> doubleSymbols;
+  private final Result result;
 
   private Symbols(SymbolsBuilder builder) {
     Roll roll = buildRoll(builder);
 
-    jackpot = roll.jackpot();
-    doubleSymbols = roll.doubleS();
+    result = roll.jackpot().or(roll::pair).orElseGet(Result::fail);
   }
 
   private Roll buildRoll(SymbolsBuilder builder) {
-    return groupSymbolByNumber(builder).entrySet()
-    .stream()
-    .collect(Collectors.teeing(
-      Collectors.filtering(IS_JACKPOT, Collectors.reducing((a, __) -> a)),
-      Collectors.filtering(HAS_DOUBLE_SYMBOLS, Collectors.reducing((a, __) -> a)),
-      (jackpotEntry, doubleEntry) -> new Roll(jackpotEntry.map(r -> Result.jackopt(r.getKey())), doubleEntry.map(r -> Result.doubleSymbol(r.getKey()))))
+    return groupSymbolByNumber(builder)
+      .entrySet()
+      .stream()
+      .collect(
+        Collectors.teeing(
+          toResult(IS_JACKPOT, entry -> Result.jackpot(entry.getKey())),
+          toResult(HAS_PAIR, entry -> Result.pair(entry.getKey())),
+          Roll::new
+        )
       );
+  }
+
+  private Collector<Entry<Symbol, Long>, ?, Optional<Result>> toResult(
+    Predicate<Entry<Symbol, Long>> combination,
+    Function<Entry<Symbol, Long>, Result> mapper
+  ) {
+    return Collectors.filtering(
+      combination,
+      Collectors.mapping(mapper, Collectors.reducing((a, __) -> a))
+    );
   }
 
   private Map<Symbol, Long> groupSymbolByNumber(SymbolsBuilder builder) {
     return Stream.of(builder.first, builder.second, builder.third).collect(
       Collectors.groupingBy(Function.identity(), Collectors.counting())
-      );
+    );
   }
 
-  private record Roll(Optional<Result> jackpot, Optional<Result> doubleS) {}
+  private record Roll(Optional<Result> jackpot, Optional<Result> pair) {}
 
   public Result result() {
-    return jackpot.or(() -> doubleSymbols).orElse(Result.fail());
+    return result;
   }
 
-  private static Predicate<Entry<Symbol, Long>> hasDoubleSymbol() {
+  private static Predicate<Entry<Symbol, Long>> hasPair() {
     return entry -> entry.getValue() == 2;
   }
 

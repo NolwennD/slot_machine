@@ -1,12 +1,12 @@
 package slot_machine;
 
 public sealed interface Result {
-  static Result jackopt(Symbol symbol) {
+  static Result jackpot(Symbol symbol) {
     return new Jackpot(symbol);
   }
 
-  static Result doubleSymbol(Symbol symbol) {
-    return new DoubleSymbol(symbol);
+  static Result pair(Symbol symbol) {
+    return new Pair(symbol);
   }
 
   static Result fail() {
@@ -16,6 +16,6 @@ public sealed interface Result {
 
 record Jackpot(Symbol symbol) implements Result {}
 
-record DoubleSymbol(Symbol symbo) implements Result {}
+record Pair(Symbol symbol) implements Result {}
 
 record Fail() implements Result {}

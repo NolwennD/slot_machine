@@ -15,7 +15,7 @@ public class SlotMachine {
   public Score score(Symbols symbols) {
     return switch (symbols.result()) {
       case Jackpot(Symbol s) -> scorer.jackpot(s);
-      case DoubleSymbol(Symbol s) -> scorer.symbolScore(s);
+      case Pair(Symbol s) -> scorer.symbolScore(s);
       case Fail __ -> Score.ZERO;
     };
   }
